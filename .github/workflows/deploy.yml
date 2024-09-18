@@ -1,0 +1,78 @@
+name: Build, and Publish Docker image
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build, Publish, and Deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.27.5/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Start Deployment
+        uses: bobheadxi/deployments@v0.4.3
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: main
+
+      - name: docker login
+        env:
+          DOCKER_USER: ${{secrets.DOCKER_USER}}
+          DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+        run: |
+          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD       
+
+      - name: Server - Build, tag, and push image to Dockerhub
+        id: server_filter
+        run: |
+          # Build a docker image
+          git_hash=$(git rev-parse --short "$GITHUB_SHA")
+          bird_latest_image="$DOCKER_REGISTRY/$BIRD_DOCKER_REPOSITORY:$git_hash"
+          cd app/bird && docker build -t $bird_latest_image .
+
+          echo "Pushing image to dockerhub..."
+          docker push $bird_latest_image
+          echo "::set-output name=image::$bird_latest_image"
+
+          bird_image_latest_image="$DOCKER_REGISTRY/$BIRD_IMAGE_DOCKER_REPOSITORY:$git_hash"
+          cd ../bird-image && docker build -t $bird_image_latest_image .
+
+          echo "Pushing image to dockerhub..."
+          docker push $bird_image_latest_image
+          echo "::set-output name=image::$bird_image_latest_image"
+
+          echo "updating image tag in values file..."
+
+          cd ../../ # get back to app root
+          yq e -i '.image.tag = "$git_hash"' ./k8s/releases/values/bird-images-values.yaml
+          yq e -i '.image.tag = "$git_hash"' ./k8s/releases/values/bird-values.yaml
+        env:
+          DOCKER_REGISTRY: ${{secrets.DOCKER_REGISTRY}}
+          BIRD_DOCKER_REPOSITORY: kubeadm-demo-bird
+          BIRD_IMAGE_DOCKER_REPOSITORY: kubeadm-demo-bird-image
+      
+      - name: Commit and push changes
+        uses: devops-infra/action-commit-push@v0.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          commit_message: Updated dev docker image version
+
+      - name: Update Deployment Status
+        uses: bobheadxi/deployments@v0.4.3
+        if: always()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}

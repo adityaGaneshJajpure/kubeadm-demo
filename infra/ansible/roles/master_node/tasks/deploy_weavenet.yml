@@ -1,0 +1,8 @@
+---
+- name: copy weave-daemonset-k8s.yaml from ansible control node to k8s master node
+  template:
+    src: weave-daemonset-k8s.yaml
+    dest: /tmp
+
+- name: create weavenet deployment
+  ansible.builtin.shell: kubectl apply -f /tmp/weave-daemonset-k8s.yaml

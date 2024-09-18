@@ -1,0 +1,34 @@
+---
+- hosts: master_node:worker_nodes
+  become: yes
+  remote_user: ubuntu
+  roles:
+    - all_k8s_nodes
+
+- hosts: master_node
+  become: yes
+  vars:
+    os_environment:
+      - key: KUBECONFIG
+        value : /etc/kubernetes/admin.conf
+  remote_user: ubuntu
+  roles:
+    - master_node
+
+- hosts: worker_nodes
+  become: yes
+  remote_user: ubuntu
+  roles:
+    - worker_nodes
+
+- hosts: nginx_server
+  become: yes
+  remote_user: ec2-user
+  roles:
+    - nginx_server
+
+- hosts: master_node
+  become: yes
+  remote_user: ubuntu
+  roles:
+    - ingress

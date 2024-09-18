@@ -1,0 +1,73 @@
+---
+- name: Update the apt package index
+  apt:
+    update_cache: yes 
+    force_apt_get: yes
+    cache_valid_time: 3600
+
+- name: Install apt-transport-https
+  apt:
+    pkg:
+      - apt-transport-https
+    state: latest
+    update_cache: true
+
+- name: add Kubernetes apt-key
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor_version }}/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: '0644'
+    force: true
+
+- name: add Kubernetes' APT repository
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor_version }}/deb/ /"
+    state: present
+    update_cache: yes
+
+- name: Update the apt package index
+  apt:
+    update_cache: yes 
+    force_apt_get: yes
+    cache_valid_time: 3600
+
+- name: Disable Swap Memory
+  shell: swapoff -a
+
+- name: Install kubelet
+  ansible.builtin.apt:
+    name: kubelet={{ kubelet_version }}
+    state: present
+    update_cache: true
+
+- name: Install kubeadm
+  ansible.builtin.apt:
+    name: kubeadm={{ kubeadm_version }}
+    state: present
+    update_cache: true
+
+- name: Install kubectl
+  ansible.builtin.apt:
+    name: kubectl={{ kubectl_version }}
+    state: present
+    update_cache: true
+    allow_downgrade: yes
+
+# We configure hold on kubeadm, kubectl and kubelet packages 
+# in order to make sure that are not accidentally
+# upgrated or removed  
+
+- name: Hold kubeadm
+  dpkg_selections:
+    name: kubeadm
+    selection: hold
+
+- name: Hold kubelet
+  dpkg_selections:
+    name: kubelet
+    selection: hold
+
+- name: Hold kubectl
+  dpkg_selections:
+    name: kubectl
+    selection: hold

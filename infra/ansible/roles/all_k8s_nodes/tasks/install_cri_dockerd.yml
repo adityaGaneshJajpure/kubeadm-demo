@@ -1,0 +1,54 @@
+---
+- name: Checkout cri-dockerd repository
+  ansible.builtin.git:
+    repo: 'https://github.com/Mirantis/cri-dockerd.git'
+    dest: /tmp/cri-dockerd
+
+- name: Create /tmp/cri-dockerd/bin directory
+  file:
+    path: /tmp/cri-dockerd/bin
+    state: directory
+
+- name: Change the working directory to /tmp/cri-dockerd and execute go get and go build 
+  ansible.builtin.shell: go get && go build -o bin/cri-dockerd
+  environment:
+    PATH: /sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin:/usr/local/go/bin
+  args:
+    chdir: /tmp/cri-dockerd
+
+- name: Create /usr/local/bin directory
+  file:
+    path: /usr/local/bin
+    state: directory
+
+- name: Install cri-dockerd
+  ansible.builtin.shell: install -o root -g root -m 0755 /tmp/cri-dockerd/bin/cri-dockerd /usr/local/bin/cri-dockerd
+
+- name: Copy content of directory /tmp/cri-dockerd/packaging/systemd/ to /etc/systemd/system
+  copy:
+    src: /tmp/cri-dockerd/packaging/systemd/
+    dest: /etc/systemd/system
+    remote_src: yes
+
+- name: Replace file starting with ExecStart in docker service config file
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/cri-docker.service
+    regexp: 'ExecStart'
+    line: ExecStart=/usr/local/bin/cri-dockerd --network-plugin=cni --cni-bin-dir=/opt/cni/bin --cni-conf-dir=/etc/cni/net.d --container-runtime-endpoint fd://
+    backrefs: yes
+
+- name: Just force systemd to reread configs 
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Make sure cri-docker service is running
+  ansible.builtin.systemd:
+    state: started
+    name: cri-docker.service
+    enabled: true
+
+- name: Make sure cri-docker.socket is running
+  ansible.builtin.systemd:
+    state: started
+    name: cri-docker.socket
+    enabled: true

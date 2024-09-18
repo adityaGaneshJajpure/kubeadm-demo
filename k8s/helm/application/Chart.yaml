@@ -1,0 +1,4 @@
+apiVersion: v1
+name: base-chart
+version: v1
+description: Chart containing base service deployment manifests

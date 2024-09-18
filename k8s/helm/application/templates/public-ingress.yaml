@@ -1,0 +1,101 @@
+{{- if .Values.ingress }}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "app.name" . }}-public-ingress
+  namespace: {{ .Values.namespace }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent  4 }}
+  {{- end }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
+  rules:
+  - http:
+      paths:
+      {{- if .Values.ingress.deniedRoutes }}
+      {{- range .Values.ingress.deniedRoutes }}
+      - backend:
+            service:
+              name: {{ include "app.name" $ }}-svc
+              port:
+                number: 1111 # some invalid port
+        path: {{ . }}
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.ingress.allowRoutes }}
+      {{- range .Values.ingress.allowRoutes }}
+      - backend:
+          service:
+            name: {{ include "app.name" $ }}-svc
+            port:
+              number: 80
+        path: {{ . }}
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+      {{- else }}
+      - backend:
+          service:
+            name: {{ include "app.name" $ }}-svc
+            port:
+              number: 80
+        path: /
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+    {{- if .Values.ingress.host }}
+    host: {{ .Values.ingress.host }}
+    {{- end }}
+  {{- if .Values.ingress.additionalHosts }}
+  {{- range .Values.ingress.additionalHosts }}
+  - http:
+      paths:
+      {{- if $.Values.ingress.deniedRoutes }}
+      {{- range $.Values.ingress.deniedRoutes }}
+      - backend:
+          service:
+            name: {{ include "app.name" $ }}-svc
+            port:
+              number: 1111 # some invalid port
+        path: {{ . }}
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+      {{- end }}
+      {{- if $.Values.ingress.allowRoutes }}
+      {{- range $.Values.ingress.allowRoutes }}
+      - backend:
+          service:
+            name: {{ include "app.name" $ }}-svc
+            port:
+              number: 80
+        path: {{ . }}
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+      {{- else }}
+      - backend:
+          service:
+            name: {{ include "app.name" $ }}-svc
+            port:
+              number: 80
+        path: /
+        pathType: {{ $.Values.ingress.pathType }}
+      {{- end }}
+    host: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    {{- if .Values.ingress.additionalHosts }}
+    {{- range .Values.ingress.additionalHosts }}
+    - {{ . }}
+    {{- end }}
+    {{- end }}
+    secretName: {{ .Values.ingress.tls.certName }}
+  {{- end }}
+{{- end }}
+{{- end }}

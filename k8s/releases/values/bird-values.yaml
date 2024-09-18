@@ -1,0 +1,80 @@
+name: bird
+namespace: bird
+replicas: 4
+image:
+  repository: adityaganesh27/kubeadm-demo-bird
+  tag: e3f711b
+  pullPolicy: IfNotPresent
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+configs:
+  port: "8000"
+  LOG_LEVEL: debug
+  BIRDS_API: https://freetestapi.com/api/v1/birds/
+  BIRD_IMAGE_SERVER_ENDPOINT: http://bird-image.bird.svc.cluster.local:80
+  DEFAULT_BIRD_NAME: "Bird in disguise"
+  DEFAULT_BIRD_IMAGE: "https://www.pokemonmillennium.net/wp-content/uploads/2015/11/missingno.png"
+resources:
+  limits:
+    cpu: 256m
+    memory: 256Mi
+  requests:
+    cpu: 128m
+    memory: 128Mi
+autoscaling:
+  minReplicas: 4
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Min
+podAnnotations: {}
+service:
+  type: ClusterIP
+  port: 8000
+probes:
+  healthEndpoint: /health
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+ingress:
+  enabled: true
+  ingressClassName: alb
+  pathType: Prefix
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/inbound-cidrs: 52.202.60.97/32,184.72.63.129/32,15.207.239.77/32
+    alb.ingress.kubernetes.io/subnets: subnet-0109828565bcb2cd7,subnet-03c71eb5cb5f86757,subnet-0c022e93bc5736f34
+affinity:
+  key: type
+  value: ondemand
+  podAntiAffinity:
+    topologyKey: kubernetes.io/hostname
+    weight: 100

@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  labels:
+    name: infra
+spec:
+  project: default
+  sources:
+  - repoURL: https://github.com/adityajajpure94/kubeadm-demo
+    targetRevision: HEAD
+    path: k8s/helm-charts/monitoring
+    helm:
+      valueFiles:
+      - $values/k8s/releases/values/monitoring-values.yaml
+  - repoURL: 'https://github.com/adityajajpure94/kubeadm-demo'
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

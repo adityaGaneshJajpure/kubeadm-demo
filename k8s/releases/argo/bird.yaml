@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bird
+  namespace: argocd
+  labels:
+    name: common
+spec:
+  project: default
+  sources:
+  - repoURL: https://github.com/adityajajpure94/kubeadm-demo
+    targetRevision: HEAD
+    path: k8s/helm-charts/application
+    helm:
+      valueFiles:
+      - $values/k8s/releases/values/bird-values.yaml
+  - repoURL: 'https://github.com/adityajajpure94/kubeadm-demo'
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bird
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
